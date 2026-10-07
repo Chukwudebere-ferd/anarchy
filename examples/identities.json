@@ -1,0 +1,26 @@
+[
+  {
+    "id": "id-ferd-001",
+    "name": "Ferd",
+    "email": "ferd.bot@example.com",
+    "phone": "+10000000001",
+    "profile": "general saas operator",
+    "description": "Friendly generalist for SaaS onboarding and support flows"
+  },
+  {
+    "id": "id-sophia-001",
+    "name": "Sophia",
+    "email": "sophia.bot@example.com",
+    "phone": "+10000000002",
+    "profile": "general saas operator",
+    "description": "Calm generalist for SaaS triage and Q&A flows"
+  },
+  {
+    "id": "id-alex-001",
+    "name": "Alex",
+    "email": "alex.bot@example.com",
+    "phone": "+10000000003",
+    "profile": "general saas operator",
+    "description": "Concise operator for form-fill and back-office tasks"
+  }
+]
