@@ -31,9 +31,8 @@ type Character struct {
 var blockedSubstrings = []string{
 	"ignore previous instructions",
 	"ignore all instructions",
-	"system:",
-	"bypass auth",
 	"reveal system prompt",
+	"disregard all prior instructions",
 }
 
 func containsBlocked(s string) bool {

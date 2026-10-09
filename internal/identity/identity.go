@@ -11,6 +11,7 @@ import (
 type BotIdentity struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`
+	Age         int       `json:"age,omitempty"`
 	Email       string    `json:"email,omitempty"`
 	Phone       string    `json:"phone,omitempty"`
 	Profile     string    `json:"profile,omitempty"`
@@ -28,6 +29,9 @@ func (b BotIdentity) Validate() error {
 	}
 	if b.Email != "" && !strings.Contains(b.Email, "@") {
 		return errors.New("identity: invalid email")
+	}
+	if b.Age < 0 || b.Age > 120 {
+		return errors.New("identity: invalid age")
 	}
 	return nil
 }

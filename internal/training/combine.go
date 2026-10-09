@@ -11,9 +11,21 @@ import (
 // Deployment is one randomised bot: any identity x any character version.
 // Personality and tool permissions stay separate; task is assigned later by the company.
 type Deployment struct {
-	DeploymentID string              `json:"deployment_id"`
-	Identity     identity.BotIdentity `json:"identity"`
-	Character    character.Character `json:"character"`
+	DeploymentID  string              `json:"deployment_id"`
+	Identity      identity.BotIdentity `json:"identity"`
+	Character     character.Character `json:"character"`
+	Schedule      string              `json:"schedule"`
+	JitterSeconds int                 `json:"jitter_seconds"`
+}
+
+// AssignSchedule stamps every deployment with the same schedule window.
+// Jitter spreads runs so activity does not land in one burst.
+func AssignSchedule(deps []Deployment, schedule string, jitter int) []Deployment {
+	for i := range deps {
+		deps[i].Schedule = schedule
+		deps[i].JitterSeconds = jitter
+	}
+	return deps
 }
 
 // Combine validates then pairs one identity with one character.

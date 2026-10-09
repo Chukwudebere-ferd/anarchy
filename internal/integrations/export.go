@@ -6,6 +6,8 @@ import (
 )
 
 // Permissions are least-privilege by default. Personality never grants access.
+// Bots run scheduled mock-data tasks autonomously; task types listed in
+// NeedApproval always require client permission before running.
 type Permissions struct {
 	AllowedTools []string `json:"allowed_tools"`
 	NeedApproval []string `json:"need_approval"`
@@ -25,11 +27,12 @@ type ExportableBot struct {
 	TaskAssignedBy     string               `json:"task_assigned_by"`
 }
 
-// DefaultPermissions returns a safe starting point: no tools, approvals required.
+// DefaultPermissions returns a safe starting point: scheduled mock-data
+// tasks run freely, sensitive types need client approval. See execution.RequiresApproval.
 func DefaultPermissions() Permissions {
 	return Permissions{
-		AllowedTools:     []string{},
-		NeedApproval:     []string{"destructive", "financial", "privacy-sensitive", "irreversible", "external-post"},
+		AllowedTools:     []string{"mock-seed", "scheduled-task"},
+		NeedApproval:     []string{"financial", "destructive", "privacy-sensitive", "irreversible", "external-publish", "real-user-contact"},
 		RateLimitPerMin: 10,
 	}
 }
