@@ -68,6 +68,10 @@ func main() {
 	evalOnly := flag.Bool("eval", false, "score character training data and exit")
 	demoHold := flag.Bool("demo-hold", false, "demonstrate the approval gate and exit")
 	statsOnly := flag.Bool("stats", false, "print inventory counts from Postgres and exit")
+	bundleDir := flag.String("bundle", "", "write OpenCode company bundle to this directory")
+	company := flag.String("company", "pilot", "company name stamped into the bundle")
+	importChars := flag.String("import-chars", "", "bulk-import characters JSON via fast path, then continue")
+	reset := flag.Bool("reset", false, "truncate tasks+deployments before generating (identities/characters kept)")
 	flag.Parse()
 
 	if *demoHold {
@@ -110,7 +114,7 @@ func main() {
 	}
 
 	var pool *pgxpool.Pool
-	if *useDB || *importToDB || *migrate {
+	if *useDB || *importToDB || *migrate || *importChars != "" {
 		ctx := context.Background()
 		var err error
 		pool, err = platform.Connect(ctx)
@@ -120,7 +124,7 @@ func main() {
 		}
 		defer pool.Close()
 		if *migrate {
-			for _, f := range []string{"migrations/0001_init.sql", "migrations/0002_age.sql", "migrations/0003_schedules.sql"} {
+			for _, f := range []string{"migrations/0001_init.sql", "migrations/0002_age.sql", "migrations/0003_schedules.sql", "migrations/0004_npc.sql"} {
 				sql, err := os.ReadFile(f)
 				if err != nil {
 					fmt.Fprintln(os.Stderr, "read migration "+f+":", err)
@@ -155,6 +159,18 @@ func main() {
 				}
 			}
 			fmt.Printf("imported %d identities, %d characters to Postgres\n", len(ids), len(chars))
+		}
+		if *importChars != "" {
+			var bulkChars []character.Character
+			if err := loadJSON(*importChars, &bulkChars); err != nil {
+				fmt.Fprintln(os.Stderr, "load bulk characters:", err)
+				os.Exit(1)
+			}
+			if err := character.SaveAll(ctx, pool, bulkChars); err != nil {
+				fmt.Fprintln(os.Stderr, "save bulk characters:", err)
+				os.Exit(1)
+			}
+			fmt.Printf("imported %d characters to Postgres (bulk)\n", len(bulkChars))
 		}
 		if *useDB {
 			dbIDs, err := identity.ListActive(ctx, pool, key)
@@ -204,11 +220,16 @@ func main() {
 
 	if pool != nil && *useDB {
 		ctx := context.Background()
-		for _, d := range deps {
-			if err := training.SaveDeployment(ctx, pool, d); err != nil {
-				fmt.Fprintln(os.Stderr, "save deployment:", err)
+		if *reset {
+			if err := training.ResetDeployments(ctx, pool); err != nil {
+				fmt.Fprintln(os.Stderr, "reset deployments:", err)
 				os.Exit(1)
 			}
+			fmt.Println("deployments reset")
+		}
+		if err := training.SaveDeployments(ctx, pool, deps); err != nil {
+			fmt.Fprintln(os.Stderr, "save deployments:", err)
+			os.Exit(1)
 		}
 		n, _ := training.CountDeployments(ctx, pool)
 		fmt.Printf("stored %d deployments (%d total)\n", len(deps), n)
@@ -227,6 +248,13 @@ func main() {
 	fmt.Printf("generated %d bots -> %s (seed=%d schedule=%s jitter=%ds)\n", len(exports), *out, *seed, *schedule, *jitter)
 	for _, e := range exports {
 		fmt.Printf(" - %s : identity=%s x character=%s v%d\n", e.DeploymentID, e.IdentityName, e.Character.Name, e.Character.Version)
+	}
+	if *bundleDir != "" {
+		if err := integrations.WriteBundle(*bundleDir, *company, deps); err != nil {
+			fmt.Fprintln(os.Stderr, "write bundle:", err)
+			os.Exit(1)
+		}
+		fmt.Printf("bundle written -> %s (company=%s)\n", *bundleDir, *company)
 	}
 }
 

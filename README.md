@@ -100,7 +100,7 @@ anarchy/
 │   ├── execution/          # Scheduled tasks and approval gate
 │   ├── auth/               # Authentication and authorization
 │   └── platform/           # DB connection, AES-256-GCM contact encryption
-├── migrations/             # Database migrations (0001 init, 0002 age)
+├── migrations/             # Database migrations (0001 init, 0002 age, 0003 schedules/tasks)
 ├── functions/              # Identity/character JSON, generated bulk data, exports
 ├── docs/                   # Architecture and product documentation
 ├── docker-compose.yml      # Local Postgres
@@ -120,4 +120,4 @@ anarchy/
 
 ## Project Status
 
-Core training pipeline is live: Go service, Postgres with encrypted contacts, bulk JSON seeding, randomized deployments, rule-based evaluation, and versioned agent export. Schedules with jitter, the full task contract, and platform-specific adapters come next. Pilots will run on owner-operated startups first.
+Core training pipeline is live: Go service, Postgres with encrypted contacts, bulk JSON seeding, randomized deployments with schedule + jitter, rule-based evaluation, approval-gated task contract, and versioned agent export. Platform-specific adapters come next. Pilots will run on owner-operated startups first.

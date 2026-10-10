@@ -22,6 +22,8 @@ type ExportableBot struct {
 	IdentityName       string               `json:"identity_name"`
 	IdentityID         string               `json:"identity_id"`
 	Character          character.Character `json:"character"`
+	Schedule           string              `json:"schedule"`
+	JitterSeconds      int                 `json:"jitter_seconds"`
 	Permissions        Permissions          `json:"permissions"`
 	DisclosureRequired bool                 `json:"disclosure_required"`
 	TaskAssignedBy     string               `json:"task_assigned_by"`
@@ -48,6 +50,8 @@ func ToExport(d training.Deployment, perms Permissions) ExportableBot {
 		IdentityName:       d.Identity.Name,
 		IdentityID:         d.Identity.ID,
 		Character:          d.Character,
+		Schedule:           d.Schedule,
+		JitterSeconds:      d.JitterSeconds,
 		Permissions:        perms,
 		DisclosureRequired: true,
 		TaskAssignedBy:     "client",
