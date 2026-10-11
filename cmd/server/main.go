@@ -68,8 +68,9 @@ func main() {
 	evalOnly := flag.Bool("eval", false, "score character training data and exit")
 	demoHold := flag.Bool("demo-hold", false, "demonstrate the approval gate and exit")
 	statsOnly := flag.Bool("stats", false, "print inventory counts from Postgres and exit")
-	bundleDir := flag.String("bundle", "", "write OpenCode company bundle to this directory")
+	bundleDir := flag.String("bundle", "", "write company bundle to this directory")
 	company := flag.String("company", "pilot", "company name stamped into the bundle")
+	format := flag.String("format", "opencode", "bundle format: opencode|generic")
 	importChars := flag.String("import-chars", "", "bulk-import characters JSON via fast path, then continue")
 	reset := flag.Bool("reset", false, "truncate tasks+deployments before generating (identities/characters kept)")
 	flag.Parse()
@@ -250,11 +251,21 @@ func main() {
 		fmt.Printf(" - %s : identity=%s x character=%s v%d\n", e.DeploymentID, e.IdentityName, e.Character.Name, e.Character.Version)
 	}
 	if *bundleDir != "" {
-		if err := integrations.WriteBundle(*bundleDir, *company, deps); err != nil {
+		var err error
+		switch *format {
+		case "generic":
+			err = integrations.WriteGenericBundle(*bundleDir, *company, deps)
+		case "opencode":
+			err = integrations.WriteBundle(*bundleDir, *company, deps)
+		default:
+			fmt.Fprintln(os.Stderr, "unknown format (opencode|generic):", *format)
+			os.Exit(1)
+		}
+		if err != nil {
 			fmt.Fprintln(os.Stderr, "write bundle:", err)
 			os.Exit(1)
 		}
-		fmt.Printf("bundle written -> %s (company=%s)\n", *bundleDir, *company)
+		fmt.Printf("bundle written -> %s (company=%s format=%s)\n", *bundleDir, *company, *format)
 	}
 }
 

@@ -9,14 +9,34 @@ import (
 )
 
 // contract maps a platform task type to its required payload fields.
-// Sensitive types from RequiresApproval always need client approval;
-// the contract additionally guarantees the payload is complete.
+// These 5 are starter shapes only — NOT the full list. Unknown types pass
+// through ValidatePayload freely (approval-checked only). Extend per platform
+// with RegisterTaskType; e.g. job boards register apply/save_job/post_job.
 var contract = map[string][]string{
 	"signup":  {"username", "email"},
 	"post":    {"author", "body"},
 	"comment": {"author", "post_id", "body"},
 	"view":    {"target"},
 	"follow":  {"follower", "target"},
+	// Job-board pack.
+	"job_search": {"query"},
+	"save_job":   {"user", "job_id"},
+	"apply":      {"user", "job_id", "resume"},
+	"post_job":   {"employer", "title", "description"},
+}
+
+// RegisterTaskType adds (or overrides) a task type's required payload fields,
+// so each platform adapts the contract without touching core code.
+func RegisterTaskType(taskType string, fields []string) error {
+	t := strings.ToLower(strings.TrimSpace(taskType))
+	if t == "" {
+		return errors.New("execution: type is required")
+	}
+	if len(fields) == 0 {
+		return errors.New("execution: at least one field is required")
+	}
+	contract[t] = fields
+	return nil
 }
 
 // KnownTypes returns the supported platform task types, sorted.
