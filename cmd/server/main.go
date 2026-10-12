@@ -68,12 +68,29 @@ func main() {
 	evalOnly := flag.Bool("eval", false, "score character training data and exit")
 	demoHold := flag.Bool("demo-hold", false, "demonstrate the approval gate and exit")
 	statsOnly := flag.Bool("stats", false, "print inventory counts from Postgres and exit")
+	disableID := flag.String("disable", "", "soft-delete one identity by id (disabled + deleted_at set)")
 	bundleDir := flag.String("bundle", "", "write company bundle to this directory")
 	company := flag.String("company", "pilot", "company name stamped into the bundle")
 	format := flag.String("format", "opencode", "bundle format: opencode|generic")
 	importChars := flag.String("import-chars", "", "bulk-import characters JSON via fast path, then continue")
 	reset := flag.Bool("reset", false, "truncate tasks+deployments before generating (identities/characters kept)")
 	flag.Parse()
+
+	if *disableID != "" {
+		ctx := context.Background()
+		pool, err := platform.Connect(ctx)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "db connect:", err)
+			os.Exit(1)
+		}
+		defer pool.Close()
+		if err := identity.SoftDelete(ctx, pool, *disableID); err != nil {
+			fmt.Fprintln(os.Stderr, "disable:", err)
+			os.Exit(1)
+		}
+		fmt.Printf("identity %s disabled and marked deleted\n", *disableID)
+		return
+	}
 
 	if *demoHold {
 		runDemoHold()
@@ -147,17 +164,13 @@ func main() {
 			os.Exit(1)
 		}
 		if *importToDB {
-			for _, id := range ids {
-				if err := identity.Save(ctx, pool, key, id); err != nil {
-					fmt.Fprintln(os.Stderr, "save identity:", err)
-					os.Exit(1)
-				}
+			if err := identity.SaveAll(ctx, pool, key, ids); err != nil {
+				fmt.Fprintln(os.Stderr, "save identities:", err)
+				os.Exit(1)
 			}
-			for _, ch := range chars {
-				if err := character.Save(ctx, pool, ch); err != nil {
-					fmt.Fprintln(os.Stderr, "save character:", err)
-					os.Exit(1)
-				}
+			if err := character.SaveAll(ctx, pool, chars); err != nil {
+				fmt.Fprintln(os.Stderr, "save characters:", err)
+				os.Exit(1)
 			}
 			fmt.Printf("imported %d identities, %d characters to Postgres\n", len(ids), len(chars))
 		}
@@ -192,19 +205,34 @@ func main() {
 	if *evalOnly {
 		failed := 0
 		total := 0
+		// Best-effort persistence: eval history table from the README.
+		var evalPool *pgxpool.Pool
+		if os.Getenv("DATABASE_URL") != "" {
+			if p, err2 := platform.Connect(context.Background()); err2 == nil {
+				evalPool = p
+				defer p.Close()
+			}
+		}
 		for _, ch := range chars {
 			for i, r := range evaluation.EvaluateCharacter(ch) {
 				total++
-				status := "PASS"
 				if !r.Passed {
-					status = "FAIL"
 					failed++
 				}
-				fmt.Printf("[%s] %s v%d example %d (%s): score=%.2f %s\n",
-					status, r.CharacterID, r.CharacterVersion, i+1, r.ScenarioID, r.Score, r.Notes)
+				if evalPool != nil {
+					id := fmt.Sprintf("%s|%d|%s|%d", r.CharacterID, r.CharacterVersion, r.ScenarioID, i+1)
+					_, _ = evalPool.Exec(context.Background(), `
+INSERT INTO eval_results (id, scenario_id, character_id, character_version, passed, score, notes)
+VALUES ($1,$2,$3,$4,$5,$6,$7)
+ON CONFLICT (id) DO UPDATE SET passed=EXCLUDED.passed, score=EXCLUDED.score, notes=EXCLUDED.notes, evaluated_at=now()`,
+						id, r.ScenarioID, r.CharacterID, r.CharacterVersion, r.Passed, r.Score, r.Notes)
+				}
 			}
 		}
 		fmt.Printf("eval: %d/%d passed\n", total-failed, total)
+		if evalPool != nil {
+			fmt.Println("eval results saved to Postgres")
+		}
 		if failed > 0 {
 			os.Exit(1)
 		}

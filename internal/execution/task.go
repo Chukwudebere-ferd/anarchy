@@ -12,15 +12,15 @@ import (
 // side-effects (money, external publish, destructive, privacy-sensitive
 // or irreversible) must carry client approval first.
 type Task struct {
-	ID           string    `json:"id"`
-	DeploymentID string    `json:"deployment_id"`
-	Type         string    `json:"type"`
-	Payload      string    `json:"payload,omitempty"`
-	Schedule     string    `json:"schedule"`
-	NeedsApproval bool     `json:"needs_approval"`
-	ApprovedBy   string    `json:"approved_by,omitempty"`
-	ApprovedAt   time.Time `json:"approved_at,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID            string    `json:"id"`
+	DeploymentID  string    `json:"deployment_id"`
+	Type          string    `json:"type"`
+	Payload       string    `json:"payload,omitempty"`
+	Schedule      string    `json:"schedule"`
+	NeedsApproval bool      `json:"needs_approval"`
+	ApprovedBy    string    `json:"approved_by,omitempty"`
+	ApprovedAt    time.Time `json:"approved_at,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // approvalTypes are task types that always require client permission.

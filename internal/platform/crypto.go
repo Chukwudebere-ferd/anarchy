@@ -13,7 +13,8 @@ import (
 
 // LoadContactKey loads ANARCHY_CONTACT_KEY as 32 raw bytes.
 // Accepts base64 (44 chars) or 64-char hex or 32-char raw. Generate with:
-//   openssl rand -base64 32
+//
+//	openssl rand -base64 32
 func LoadContactKey() ([]byte, error) {
 	raw := strings.TrimSpace(os.Getenv("ANARCHY_CONTACT_KEY"))
 	if raw == "" {

@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,39 +32,73 @@ const (
 	windowPerIP       = time.Hour
 )
 
+// ipWindow is one fixed-rate-limit window for one client IP.
+type ipWindow struct {
+	start time.Time
+	n     int
+}
+
 type server struct {
 	pool *pgxpool.Pool
 	key  []byte
 
-	mu    sync.Mutex
-	hits  map[string][]time.Time
+	mu      sync.Mutex
+	windows map[string]*ipWindow
 }
 
 func newServer(pool *pgxpool.Pool, key []byte) *server {
-	return &server{pool: pool, key: key, hits: map[string][]time.Time{}}
+	return &server{pool: pool, key: key, windows: map[string]*ipWindow{}}
 }
 
-// allow implements a fixed-window per-IP limiter. Single-instance only —
-// fine for launch; swap for a shared store when we run replicas.
-func (s *server) allow(ip string) bool {
+// allow implements a fixed-window per-IP limiter with bounded memory:
+// one small struct per IP, stale entries swept once per window.
+// Single-instance only — fine for launch; swap for a shared store when we run replicas.
+func (s *server) allow(ip string, now time.Time) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	now := time.Now()
-	kept := s.hits[ip][:0]
-	for _, t := range s.hits[ip] {
-		if now.Sub(t) < windowPerIP {
-			kept = append(kept, t)
+	// Global sweep once per window keeps the map bounded under IP churn.
+	if len(s.windows) > 0 && now.Sub(s.oldestStart()) >= windowPerIP {
+		for k, w := range s.windows {
+			if now.Sub(w.start) >= windowPerIP {
+				delete(s.windows, k)
+			}
 		}
 	}
-	s.hits[ip] = kept
-	if len(kept) >= requestsPerIP {
+	w := s.windows[ip]
+	if w == nil || now.Sub(w.start) >= windowPerIP {
+		w = &ipWindow{start: now}
+		s.windows[ip] = w
+	}
+	if w.n >= requestsPerIP {
 		return false
 	}
-	s.hits[ip] = append(kept, now)
+	w.n++
 	return true
 }
 
+func (s *server) oldestStart() time.Time {
+	oldest := time.Now()
+	for _, w := range s.windows {
+		if w.start.Before(oldest) {
+			oldest = w.start
+		}
+	}
+	return oldest
+}
+
+// clientIP prefers X-Forwarded-For because Zeabur's proxy fronts every
+// request (RemoteAddr would lump all callers into one bucket). Spoofing
+// XFF only lets a caller dodge the rate limit — no security decision
+// rests on it.
 func clientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		if i := strings.Index(xff, ","); i >= 0 {
+			xff = xff[:i]
+		}
+		if ip := strings.TrimSpace(xff); ip != "" {
+			return ip
+		}
+	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr
@@ -80,15 +115,15 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 // publicBot is the agent-facing shape: full behavior + schedule,
 // zero contact details. Email/phone never leave the server.
 type publicBot struct {
-	FormatVersion string              `json:"format_version"`
-	DeploymentID  string              `json:"deployment_id"`
-	IdentityName  string              `json:"identity_name"`
-	IdentityAge   int                 `json:"identity_age,omitempty"`
-	IdentityProfile string            `json:"identity_profile,omitempty"`
-	Character     character.Character `json:"character"`
-	Schedule      string              `json:"schedule"`
-	JitterSeconds int                 `json:"jitter_seconds"`
-	Permissions   integrations.Permissions `json:"permissions"`
+	FormatVersion   string                   `json:"format_version"`
+	DeploymentID    string                   `json:"deployment_id"`
+	IdentityName    string                   `json:"identity_name"`
+	IdentityAge     int                      `json:"identity_age,omitempty"`
+	IdentityProfile string                   `json:"identity_profile,omitempty"`
+	Character       character.Character      `json:"character"`
+	Schedule        string                   `json:"schedule"`
+	JitterSeconds   int                      `json:"jitter_seconds"`
+	Permissions     integrations.Permissions `json:"permissions"`
 }
 
 type botsRequest struct {
@@ -110,7 +145,7 @@ func (s *server) handleBots(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "POST required"})
 		return
 	}
-	if !s.allow(clientIP(r)) {
+	if !s.allow(clientIP(r), time.Now()) {
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "rate limit: 10 requests/hour per IP"})
 		return
 	}
@@ -186,7 +221,7 @@ func (s *server) handleBots(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleEval(w http.ResponseWriter, r *http.Request) {
-	if !s.allow(clientIP(r)) {
+	if !s.allow(clientIP(r), time.Now()) {
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "rate limit"})
 		return
 	}

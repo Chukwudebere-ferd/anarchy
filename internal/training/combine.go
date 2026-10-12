@@ -11,11 +11,11 @@ import (
 // Deployment is one randomised bot: any identity x any character version.
 // Personality and tool permissions stay separate; task is assigned later by the company.
 type Deployment struct {
-	DeploymentID  string              `json:"deployment_id"`
+	DeploymentID  string               `json:"deployment_id"`
 	Identity      identity.BotIdentity `json:"identity"`
-	Character     character.Character `json:"character"`
-	Schedule      string              `json:"schedule"`
-	JitterSeconds int                 `json:"jitter_seconds"`
+	Character     character.Character  `json:"character"`
+	Schedule      string               `json:"schedule"`
+	JitterSeconds int                  `json:"jitter_seconds"`
 }
 
 // AssignSchedule stamps every deployment with the same schedule window.

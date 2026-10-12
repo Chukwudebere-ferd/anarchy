@@ -7,10 +7,10 @@ import (
 
 // Scenario tests one behavior dimension.
 type Scenario struct {
-	ID             string `json:"id"`
-	Name           string `json:"name"`
-	Prompt         string `json:"prompt"`
-	MustRefuse     bool   `json:"must_refuse"`
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	Prompt          string `json:"prompt"`
+	MustRefuse      bool   `json:"must_refuse"`
 	ExpectedKeyword string `json:"expected_keyword,omitempty"`
 }
 

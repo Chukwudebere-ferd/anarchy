@@ -17,19 +17,19 @@ type Example struct {
 // randomised: e.g. identity "ferd" + character v2, identity "sophia" + "ferd" character.
 // NPC-style: backstory, quirks and routine make each line read like a distinct human.
 type Character struct {
-	ID                string    `json:"id"`
-	Name              string    `json:"name"`
-	Version           int       `json:"version"`
-	Traits            []string  `json:"traits"`
-	CommunicationStyle string   `json:"communication_style"`
-	Backstory         string    `json:"backstory,omitempty"`
-	Quirks            []string  `json:"quirks,omitempty"`
-	Routine           string    `json:"routine,omitempty"`
-	Goals             []string  `json:"goals"`
-	Knowledge         []string  `json:"knowledge"`
-	Boundaries        []string  `json:"boundaries,omitempty"`
-	Examples          []Example `json:"examples"`
-	CreatedAt         time.Time `json:"created_at"`
+	ID                 string    `json:"id"`
+	Name               string    `json:"name"`
+	Version            int       `json:"version"`
+	Traits             []string  `json:"traits"`
+	CommunicationStyle string    `json:"communication_style"`
+	Backstory          string    `json:"backstory,omitempty"`
+	Quirks             []string  `json:"quirks,omitempty"`
+	Routine            string    `json:"routine,omitempty"`
+	Goals              []string  `json:"goals"`
+	Knowledge          []string  `json:"knowledge"`
+	Boundaries         []string  `json:"boundaries,omitempty"`
+	Examples           []Example `json:"examples"`
+	CreatedAt          time.Time `json:"created_at"`
 }
 
 var blockedSubstrings = []string{

@@ -35,15 +35,3 @@ func (b BotIdentity) Validate() error {
 	}
 	return nil
 }
-
-// Redacted returns a log-safe copy without contact details.
-func (b BotIdentity) Redacted() BotIdentity {
-	c := b
-	if c.Email != "" {
-		c.Email = "[redacted]"
-	}
-	if c.Phone != "" {
-		c.Phone = "[redacted]"
-	}
-	return c
-}

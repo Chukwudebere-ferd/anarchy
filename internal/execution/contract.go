@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 )
 
@@ -37,17 +36,6 @@ func RegisterTaskType(taskType string, fields []string) error {
 	}
 	contract[t] = fields
 	return nil
-}
-
-// KnownTypes returns the supported platform task types, sorted.
-func KnownTypes() []string {
-	out := append([]string{}, "financial", "destructive", "privacy-sensitive",
-		"irreversible", "external-publish", "real-user-contact")
-	for t := range contract {
-		out = append(out, t)
-	}
-	sort.Strings(out)
-	return out
 }
 
 // ValidatePayload checks that payload is a JSON object containing every

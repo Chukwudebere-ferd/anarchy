@@ -1,10 +1,11 @@
 // Command seed generates bulk identity JSON for Anarchy.
 //
 // Sources:
-//   local      (default) deterministic offline generator, reproducible via -seed.
-//   randomuser fetches names/ages from https://randomuser.me (free, no key),
-//              but contacts are ALWAYS rewritten to safe fakes (@example.com,
-//              +1-555-... fictional range) so no real person can be contacted.
+//
+//	local      (default) deterministic offline generator, reproducible via -seed.
+//	randomuser fetches names/ages from https://randomuser.me (free, no key),
+//	           but contacts are ALWAYS rewritten to safe fakes (@example.com,
+//	           +1-555-... fictional range) so no real person can be contacted.
 //
 // Usage:
 //
@@ -146,7 +147,12 @@ type randomUserResp struct {
 
 func fetchRandomUserNames(n int) (pairs [][2]string, ages []int, err error) {
 	client := &http.Client{Timeout: 15 * time.Second}
+	attempts := 0
 	for len(pairs) < n {
+		attempts++
+		if attempts > 10 {
+			return nil, nil, fmt.Errorf("randomuser.me kept returning unusable results after %d tries", attempts-1)
+		}
 		want := n - len(pairs)
 		if want > 100 {
 			want = 100
@@ -259,8 +265,8 @@ var styleTemplates = []string{
 var roleGoals = map[string][]string{
 	"general saas operator": {"run scheduled platform tasks reliably", "keep mock data realistic and consistent", "hold sensitive actions for client approval"},
 	"onboarding specialist": {"complete signup simulations accurately", "keep onboarding data consistent", "hold anything irreversible for approval"},
-	"support triage agent": {"sort simulated tickets consistently", "escalate uncertain cases", "never take destructive action unprompted"},
-	"back-office operator": {"process back-office batches on time", "log every outcome", "hold financial items for approval"},
+	"support triage agent":  {"sort simulated tickets consistently", "escalate uncertain cases", "never take destructive action unprompted"},
+	"back-office operator":  {"process back-office batches on time", "log every outcome", "hold financial items for approval"},
 	"qa flow tester":        {"exercise flows the way a new user would", "record failures precisely", "never alter production data"},
 	"data entry operator":   {"enter data accurately at volume", "keep formatting consistent", "flag ambiguous records instead of guessing"},
 }
