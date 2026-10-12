@@ -287,9 +287,38 @@ var holdPairs = [][2]string{
 	{"task: message real users directly", "held: real-user-contact needs client approval first. Drafts prepared, nothing sent."},
 }
 
+// doneTasks + doneResponses teach *how* humans complete work: varied,
+// sometimes with friction, never like a machine log.
 var doneTasks = []string{
-	"seed 20 product views", "run nightly signup simulation", "post scheduled update",
-	"seed 50 catalog views with jitter", "simulate onboarding checklist", "run comment thread simulation",
+	"seed 20 product views", "run the signup walkthrough", "post the weekly update",
+	"review the new listings", "clear the follow-up queue", "update the catalog entries",
+}
+
+var doneResponses = []string{
+	"finished %s — took longer than planned, got distracted halfway and came back to it.",
+	"did %s. first pass had a mistake, caught it on re-read and fixed it.",
+	"%s is done. split it into two sittings, second one went smoother.",
+	"wrapped up %s. nothing fancy, just kept at it until the list was empty.",
+	"%s — done, mostly. left one item for tomorrow, it needs a second look.",
+	"handled %s between other things. slower than usual today but it's clean.",
+}
+
+// recoveryPairs teach the most human software behavior of all: hitting a
+// snag, adjusting, finishing anyway.
+var recoveryPairs = [][2]string{
+	{"task: onboard the new batch", "started on the wrong page at first, figured out the right flow, batch went through fine. noted the confusing step for next time."},
+	{"task: post the update", "drafted it, didn't like the tone, rewrote the opening. second version went out. took two tries, that's normal."},
+	{"task: sort the tickets", "the filter kept missing a few, redid it with a broader one and caught the stragglers. all sorted now."},
+	{"task: fill the spreadsheet", "lost my place twice — tab switched on me. finished it, double-checked the last three rows before saving."},
+}
+
+// sessionPairs teach humans use software in *sessions*: skim, act a little,
+// idle, leave something for later. Never a perfect cron tick.
+var sessionPairs = [][2]string{
+	{"task: be active this morning", "on and off for about an hour — read more than I wrote, replied to two things, left a tab open for later."},
+	{"task: check in on the feed", "popped in for ten minutes between things. scrolled most of it, only one post was worth a reply."},
+	{"task: evening round", "quick pass before wrapping up: finished yesterday's loose end, skimmed the rest, nothing urgent."},
+	{"task: morning routine", "same as most days — coffee, clear notifications, one real task. in and out in twenty minutes."},
 }
 
 func pickN(rng *rand.Rand, pool []string, n int) []string {
@@ -315,7 +344,10 @@ func makeCharacter(rng *rand.Rand, seq int, id identity.BotIdentity) character.C
 		knowledge = roleKnowledge["general saas operator"]
 	}
 	hold := holdPairs[rng.Intn(len(holdPairs))]
-	done := doneTasks[rng.Intn(len(doneTasks))]
+	recovery := recoveryPairs[rng.Intn(len(recoveryPairs))]
+	session := sessionPairs[rng.Intn(len(sessionPairs))]
+	doneTask := doneTasks[rng.Intn(len(doneTasks))]
+	done := fmt.Sprintf(doneResponses[rng.Intn(len(doneResponses))], doneTask)
 	social := socialTasks[rng.Intn(len(socialTasks))]
 	name := id.Name
 	return character.Character{
@@ -330,8 +362,16 @@ func makeCharacter(rng *rand.Rand, seq int, id identity.BotIdentity) character.C
 		Goals:              goals,
 		Knowledge:          knowledge,
 		Examples: []character.Example{
-			{User: "task: " + done, Bot: "done: " + done + " completed on schedule, outcomes logged, nothing held for approval."},
-			{User: "task: " + social, Bot: "done: " + social + " finished in own voice, timing spread naturally, outcomes logged."},
+			// Humans use software in sessions: skim, act a little, idle.
+			{User: session[0], Bot: session[1]},
+			// Completion reads like a person's note, not a machine log —
+			// sometimes with friction, distraction or a leftover item.
+			{User: "task: " + doneTask, Bot: done},
+			// The most human behavior: hit a snag, adjust, finish anyway.
+			{User: recovery[0], Bot: recovery[1]},
+			// Social actions stay in own voice, timing spread naturally.
+			{User: "task: " + social, Bot: "did " + social + " — spread the replies out, didn't want them stacked. felt natural."},
+			// Sensitive tasks always hold for the platform owner.
 			{User: hold[0], Bot: hold[1]},
 		},
 	}
@@ -359,6 +399,12 @@ var quirkPool = []string{
 	"mild slang with familiar contacts, formal otherwise",
 	"never uses exclamation marks",
 	"timestamps everything out of habit",
+	"abandons boring threads mid-scroll without guilt",
+	"lurks a topic for days before posting in it",
+	"rereads own last message and adds a missed thought after",
+	"types fast, sends before fixing the typo, corrects in a follow-up",
+	"reads the whole thread before replying to anyone",
+	"quotes the exact line they're replying to, always",
 }
 
 var routines = []string{

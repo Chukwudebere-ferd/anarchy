@@ -213,20 +213,50 @@ func main() {
 				defer p.Close()
 			}
 		}
+		type evalRow struct {
+			id, scenario, charID string
+			version              int
+			passed               bool
+			score                float64
+			notes                string
+		}
+		rows := []evalRow{}
 		for _, ch := range chars {
 			for i, r := range evaluation.EvaluateCharacter(ch) {
 				total++
 				if !r.Passed {
 					failed++
 				}
-				if evalPool != nil {
-					id := fmt.Sprintf("%s|%d|%s|%d", r.CharacterID, r.CharacterVersion, r.ScenarioID, i+1)
-					_, _ = evalPool.Exec(context.Background(), `
-INSERT INTO eval_results (id, scenario_id, character_id, character_version, passed, score, notes)
-VALUES ($1,$2,$3,$4,$5,$6,$7)
-ON CONFLICT (id) DO UPDATE SET passed=EXCLUDED.passed, score=EXCLUDED.score, notes=EXCLUDED.notes, evaluated_at=now()`,
-						id, r.ScenarioID, r.CharacterID, r.CharacterVersion, r.Passed, r.Score, r.Notes)
-				}
+				rows = append(rows, evalRow{
+					id:       fmt.Sprintf("%s|%d|%s|%d", r.CharacterID, r.CharacterVersion, r.ScenarioID, i+1),
+					scenario: r.ScenarioID, charID: r.CharacterID, version: r.CharacterVersion,
+					passed: r.Passed, score: r.Score, notes: r.Notes,
+				})
+			}
+		}
+		// Chunked write: 2,750 single-row inserts over a remote link took ~30
+		// minutes and looked like a hang; 50-per-statement takes seconds.
+		for start := 0; evalPool != nil && start < len(rows); start += 50 {
+			end := start + 50
+			if end > len(rows) {
+				end = len(rows)
+			}
+			chunk := rows[start:end]
+			placeholders := make([]string, 0, len(chunk))
+			args := make([]any, 0, len(chunk)*7)
+			for i, r := range chunk {
+				base := i * 7
+				placeholders = append(placeholders, fmt.Sprintf("($%d,$%d,$%d,$%d,$%d,$%d,$%d)",
+					base+1, base+2, base+3, base+4, base+5, base+6, base+7))
+				args = append(args, r.id, r.scenario, r.charID, r.version, r.passed, r.score, r.notes)
+			}
+			q := `INSERT INTO eval_results (id, scenario_id, character_id, character_version, passed, score, notes)
+VALUES ` + strings.Join(placeholders, ",") + `
+ON CONFLICT (id) DO UPDATE SET passed=EXCLUDED.passed, score=EXCLUDED.score,
+  notes=EXCLUDED.notes, evaluated_at=now()`
+			if _, err := evalPool.Exec(context.Background(), q, args...); err != nil {
+				fmt.Fprintln(os.Stderr, "(warn) eval results not saved:", err)
+				break
 			}
 		}
 		fmt.Printf("eval: %d/%d passed\n", total-failed, total)
